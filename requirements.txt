@@ -18,6 +18,7 @@ tiktoken
 
 # === LLM ===
 groq
+langchain-groq
 
 # === Utilities ===
 numpy
