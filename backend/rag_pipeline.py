@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from qdrant_client import QdrantClient, models as qmodels
 from langchain_qdrant import QdrantVectorStore
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader
+from langchain_community.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import CrossEncoderReranker
@@ -29,6 +29,7 @@ embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 # Embedded Qdrant (stores vectors under QDRANT_LOCAL_PATH)
 qclient = QdrantClient(path=QDRANT_LOCAL_PATH)
 
+
 def _ensure_collection():
     """
     Ensure local embedded Qdrant has the configured collection and vector params.
@@ -47,6 +48,7 @@ def _ensure_collection():
             vectors_config=qmodels.VectorParams(size=EMBEDDING_DIM, distance=metric),
         )
 
+
 _ensure_collection()
 
 vectorstore = QdrantVectorStore(
@@ -60,6 +62,7 @@ splitter = RecursiveCharacterTextSplitter(
     chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, separators=["\n\n", "\n", " ", ""]
 )
 
+
 def _load_document(file_path: str):
     ext = os.path.splitext(file_path)[-1].lower()
     if ext == ".txt":
@@ -67,7 +70,7 @@ def _load_document(file_path: str):
     elif ext == ".pdf":
         loader = PyPDFLoader(file_path)
     elif ext == ".docx":
-        loader = Docx2txtLoader(file_path)
+        loader = UnstructuredWordDocumentLoader(file_path)
     else:
         raise ValueError(f"Unsupported file type: {ext}")
     docs = loader.load()
@@ -75,10 +78,10 @@ def _load_document(file_path: str):
         d.metadata.setdefault("source", file_path)
     return docs
 
+
 def _upsert_documents(docs, scope: str):
     """
     Split, annotate metadata, and upsert with valid UUID point IDs.
-    The human-friendly chunk_id stays in metadata for scope filtering and citations.
     """
     chunks = splitter.split_documents(docs)
     ids: List[str] = []
@@ -88,14 +91,14 @@ def _upsert_documents(docs, scope: str):
         d.metadata["chunk_id"] = chunk_id
         d.metadata.setdefault("section", d.metadata.get("page"))
         d.metadata["position"] = i
-        # Qdrant embedded requires valid UUIDs or integers for point ids
-        ids.append(str(uuid.uuid4()))
+        ids.append(str(uuid.uuid4()))  # required by Qdrant
     vectorstore.add_documents(chunks, ids=ids)
     return len(chunks)
 
+
 def reset_scope(scope: str):
     """
-    Delete all points for a given scope by filtering on the metadata.chunk_id prefix.
+    Delete all points for a given scope by filtering on the chunk_id prefix.
     """
     prefix = f"{scope}:"
     qclient.delete(
@@ -103,12 +106,13 @@ def reset_scope(scope: str):
         points_selector=qmodels.FilterSelector(
             filter=qmodels.Filter(
                 must=[qmodels.FieldCondition(
-                    key="metadata.chunk_id",
+                    key="chunk_id",  # ✅ FIX: remove metadata.
                     match=qmodels.MatchText(text=prefix)
                 )]
             )
         )
     )
+
 
 def add_documents(file_path: str, scope: Optional[str] = "default") -> Dict[str, Any]:
     docs = _load_document(file_path)
@@ -117,6 +121,7 @@ def add_documents(file_path: str, scope: Optional[str] = "default") -> Dict[str,
     added = _upsert_documents(docs, scope=scope or "default")
     return {"message": f"Indexed {added} chunks for {os.path.basename(file_path)} in scope '{scope}'."}
 
+
 def get_retriever_with_reranker(scope: Optional[str] = "default"):
     """
     Retrieve top-k filtered by scope, then rerank to top_n via a local cross-encoder.
@@ -124,7 +129,7 @@ def get_retriever_with_reranker(scope: Optional[str] = "default"):
     prefix = f"{scope}:"
     scope_filter = qmodels.Filter(
         must=[qmodels.FieldCondition(
-            key="metadata.chunk_id",
+            key="chunk_id",  # ✅ FIX
             match=qmodels.MatchText(text=prefix)
         )]
     )
@@ -134,12 +139,15 @@ def get_retriever_with_reranker(scope: Optional[str] = "default"):
         search_kwargs={"k": RETRIEVE_K, "filter": scope_filter}
     )
 
-    ce = HuggingFaceCrossEncoder(model_name=RERANKER_MODEL)
+    # Use lightweight reranker
+    reranker_model = RERANKER_MODEL or "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    ce = HuggingFaceCrossEncoder(model_name=reranker_model)
     compressor = CrossEncoderReranker(model=ce, top_n=RERANK_TOP_N)
 
     return ContextualCompressionRetriever(
         base_retriever=base_retriever, base_compressor=compressor
     )
+
 
 def get_qa_chain(scope: Optional[str] = "default"):
     """
