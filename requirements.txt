@@ -1,0 +1,22 @@
+# === Core ===
+fastapi
+uvicorn
+streamlit
+requests
+python-dotenv
+python-multipart
+# === Vector DB & Embeddings ===
+faiss-cpu
+sentence-transformers
+langchain
+langchain-community
+qdrant-client
+langchain_qdrant
+# === LLM ===
+groq
+
+# === Utilities ===
+transformers
+torch
+docx2txt
+pypdf
