@@ -36,6 +36,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "Mini RAG backend running"}
+
+
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...), scope: str = Query("default"), fresh: bool = Query(False)):
     """
