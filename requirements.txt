@@ -5,26 +5,24 @@ streamlit
 requests
 python-dotenv
 python-multipart
+
 # === Vector DB & Embeddings ===
-faiss-cpu
-sentence-transformers
+qdrant-client
 langchain
 langchain-community
-qdrant-client
-langchain_qdrant
-langchain-groq
+langchain-qdrant
 langchain-core
-langchain-openai
 langchain-text-splitters
+sentence-transformers
 tiktoken
-faiss-cpu
+
 # === LLM ===
 groq
+
+# === Utilities ===
 numpy
 pandas
-# === Utilities ===
 transformers
-torch
 docx2txt
 pypdf
 pydantic

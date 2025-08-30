@@ -40,7 +40,6 @@ app.add_middleware(
 async def root():
     return {"status": "ok", "message": "Mini RAG backend running"}
 
-
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...), scope: str = Query("default"), fresh: bool = Query(False)):
     """
@@ -55,7 +54,7 @@ async def upload_file(file: UploadFile = File(...), scope: str = Query("default"
     if not is_mime_allowed(ext, mime_type):
         raise HTTPException(status_code=400, detail=f"Invalid MIME {mime_type!r} for extension {ext}.")
 
-    base_name = os.path.splitext(os.path.basename(file.filename))
+    base_name = os.path.splitext(os.path.basename(file.filename or "upload"))
     safe_filename = f"{base_name}_{uuid.uuid4().hex[:8]}{ext}"
     file_path = os.path.join(UPLOAD_DIR, safe_filename)
 
@@ -72,8 +71,7 @@ async def upload_file(file: UploadFile = File(...), scope: str = Query("default"
     if fresh:
         reset_scope(scope)
 
-    result = add_documents(file_path, scope=scope)
-    return result
+    return add_documents(file_path, scope=scope)  # [1][6]
 
 @app.post("/upload_text")
 async def upload_text(body: Dict[str, Any]):
@@ -95,8 +93,7 @@ async def upload_text(body: Dict[str, Any]):
     with open(path, "w", encoding="utf-8") as f:
         f.write(text)
 
-    result = add_documents(path, scope=scope)
-    return result
+    return add_documents(path, scope=scope)
 
 @app.post("/query")
 async def query_rag(body: Dict[str, Any]):
@@ -125,6 +122,7 @@ async def query_rag(body: Dict[str, Any]):
         if "Invalid API Key" in msg or "401" in msg:
             raise HTTPException(status_code=400, detail="Groq authentication failed: check GROQ_API_KEY.")
         raise
+
     latency_ms = int((time.time() - t0) * 1000)
 
     docs = out.get("source_documents", []) or []
