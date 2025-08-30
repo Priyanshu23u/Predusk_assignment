@@ -1,6 +1,8 @@
 import requests
 
-BACKEND_URL = "http://localhost:8000"
+import os
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+
 
 def upload_document(file_path):
     with open(file_path, "rb") as f:

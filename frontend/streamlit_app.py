@@ -123,8 +123,8 @@ st.markdown(THEME_CSS, unsafe_allow_html=True)
 # ----------------------------
 # Backend Config & Helper
 # ----------------------------
-BACKEND_URL = "http://localhost:8000"
-
+import os
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 def _safe_json(res):
     try:
         return res.json()
