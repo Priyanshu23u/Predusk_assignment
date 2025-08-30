@@ -12,11 +12,19 @@ langchain
 langchain-community
 qdrant-client
 langchain_qdrant
+langchain-groq
+langchain-core
+langchain-openai
+langchain-text-splitters
+tiktoken
+faiss-cpu
 # === LLM ===
 groq
-
+numpy
+pandas
 # === Utilities ===
 transformers
 torch
 docx2txt
 pypdf
+pydantic
